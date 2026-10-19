@@ -14,3 +14,6 @@ data/live/*.log
 data/live/*.err
 data/live/*.out
 launchd/
+
+# private session notes
+HANDOFF.md
