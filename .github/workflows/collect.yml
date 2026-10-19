@@ -1,0 +1,51 @@
+# Weekday-morning collector for bus 5250 + 1841 (TDX live stop events), plus the commute panel.
+# Starts 06:30 Taipei (cron is UTC, Sun-Thu 22:30 = Mon-Fri 06:30 Taipei); the script itself waits
+# until 07:15 and polls until 09:15, so late-starting scheduled runs still catch the 07:30 slot.
+name: collect
+on:
+  schedule:
+    - cron: "30 22 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Single poll only (quick test)"
+        type: boolean
+        default: true
+permissions:
+  contents: write
+concurrency:
+  group: collect
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    env:
+      TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
+      TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
+      TZ: Asia/Taipei
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: astral-sh/setup-uv@v6
+      - name: Collect stop events (07:15-09:15)
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; then
+            python3 collect_5250.py --once
+          else
+            python3 collect_5250.py
+          fi
+      - name: Rebuild commute panel
+        if: always()
+        run: uv run python build_panel.py
+      - name: Commit data
+        if: always()
+        run: |
+          git config user.name "commute-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/live data/panel
+          if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
+          git commit -m "data: $(date +%F) morning"
+          for i in 1 2 3; do git pull --rebase && git push && exit 0; sleep 5; done
+          exit 1

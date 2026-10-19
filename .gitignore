@@ -1,0 +1,16 @@
+# secrets and local state
+.env
+.tdx_token.json
+.venv/
+__pycache__/
+
+# data: only the daily collector output, the calendar and the derived panel are published.
+# Purchased TDX history (data/hist), freeway downloads and scratch outputs stay local.
+data/*
+!data/live/
+!data/panel/
+!data/calendar/
+data/live/*.log
+data/live/*.err
+data/live/*.out
+launchd/
