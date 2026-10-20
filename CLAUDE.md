@@ -12,7 +12,7 @@ The rule under test: **take the first 5250 (to Farglory) or 1841 that leaves Son
 
 | Step | Where | What |
 | --- | --- | --- |
-| Collect | GitHub Actions `.github/workflows/collect.yml` (weekdays, cron 22:30 UTC Sun–Thu) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
+| Collect | GitHub Actions `.github/workflows/collect.yml` (weekdays; three crons 22:15, 22:40, 23:07 UTC Sun–Thu, because GitHub drops some scheduled runs) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
 | Build | same workflow | `build_panel.py` → `data/panel/mornings.csv` (one row per working day × approach: `rule`, `only_0730`, `only_0755`) |
 | Publish | Claude cloud routine "Farglory plan refresh" (weekdays 10:00 Taipei) | Uploads `mornings.csv` to the dashboard's `datasets/mornings` |
 

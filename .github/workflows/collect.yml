@@ -1,10 +1,14 @@
 # Weekday-morning collector for bus 5250 + 1841 (TDX live stop events), plus the commute panel.
-# Starts 06:30 Taipei (cron is UTC, Sun-Thu 22:30 = Mon-Fri 06:30 Taipei); the script itself waits
+# Starts 06:15 Taipei (cron is UTC, Sun-Thu 22:15 = Mon-Fri 06:15 Taipei); the script itself waits
 # until 07:15 and polls until 09:15, so late-starting scheduled runs still catch the 07:30 slot.
+# GitHub sometimes drops scheduled runs (it skipped 2026-10-20), so three crons fire; the
+# concurrency group lets only one collect at a time, and a run starting after 09:15 polls nothing.
 name: collect
 on:
   schedule:
-    - cron: "30 22 * * 0-4"
+    - cron: "15 22 * * 0-4"
+    - cron: "40 22 * * 0-4"
+    - cron: "7 23 * * 0-4"
   workflow_dispatch:
     inputs:
       test:
