@@ -47,7 +47,9 @@ def load_live() -> tuple[pd.DataFrame, dict]:
             continue
         x = pd.DataFrame(rows)
         polled = pd.to_datetime(x.PolledAt).dt.tz_convert("Asia/Taipei").dt.tz_localize(None)
-        coverage[day] = polled.drop_duplicates().sort_values()
+        # a poll counts as coverage only if the feed returned some 5250 bus (5250B runs every ~10 min);
+        # on 2026-10-23 TDX returned no 5250 at all, which is missing data, not a no-bus morning
+        coverage[day] = polled[x.RouteUID == "THB5250"].drop_duplicates().sort_values()
         x["StopNameZh_tw"] = x.StopName.map(lambda s: s["Zh_tw"])
         x["A2EventType"] = x.A2EventType.map({0: "離站", 1: "進站"})
         for c in ["GPSTime", "TripStartTime"]:
@@ -63,7 +65,7 @@ def load_live() -> tuple[pd.DataFrame, dict]:
 
 
 def departure_window_covered(polls: pd.Series, day: pd.Timestamp) -> bool:
-    """True when the collector polled the 07:20-07:45 departure window without a gap > 3 min."""
+    """True when the feed showed 5250 buses through 07:20-07:45 without a gap > 3 min."""
     a, b = day + pd.Timedelta("07:20:00"), day + pd.Timedelta("07:45:00")
     p = polls[(polls >= a - pd.Timedelta("3min")) & (polls <= b + pd.Timedelta("3min"))]
     if len(p) == 0 or p.min() > a + pd.Timedelta("3min") or p.max() < b - pd.Timedelta("3min"):
@@ -176,7 +178,7 @@ def main() -> None:
     r = m[m.strategy == "rule"]
     print(f"{r.date.nunique()} mornings ({(r.source == 'live').sum()} live), "
           f"rule on time {(r.arrive_min <= 540).sum()}/{len(r)}, taxi days {(r['mode'] == 'taxi').sum()}, "
-          f"inferred arrivals {int(m.arrival_inferred.sum())}; skipped (no departure coverage): {skipped or 'none'}")
+          f"inferred arrivals {int(m.arrival_inferred.sum())}; skipped (no 5250 data 07:20-07:45): {skipped or 'none'}")
 
 
 if __name__ == "__main__":

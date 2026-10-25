@@ -1,14 +1,15 @@
 # Weekday-morning collector for bus 5250 + 1841 (TDX live stop events), plus the commute panel.
-# Starts 06:15 Taipei (cron is UTC, Sun-Thu 22:15 = Mon-Fri 06:15 Taipei); the script itself waits
-# until 07:15 and polls until 09:15, so late-starting scheduled runs still catch the 07:30 slot.
-# GitHub sometimes drops scheduled runs (it skipped 2026-10-20), so three crons fire; the
-# concurrency group lets only one collect at a time, and a run starting after 09:15 polls nothing.
+# GitHub starts scheduled runs late or not at all: on 2026-10-20 it skipped the run, and on Oct 21-23
+# the 22:15-23:07 UTC crons started ~2h20m late (08:40 Taipei, after the 07:30 bus). So three crons
+# fire well before dawn (20:10, 20:50, 21:30 UTC = 04:10, 04:50, 05:30 Taipei); the script waits
+# until 07:15 and polls until 09:15. The concurrency group lets only one collect at a time, and a
+# run starting after 09:15 polls nothing.
 name: collect
 on:
   schedule:
-    - cron: "15 22 * * 0-4"
-    - cron: "40 22 * * 0-4"
-    - cron: "7 23 * * 0-4"
+    - cron: "10 20 * * 0-4"
+    - cron: "50 20 * * 0-4"
+    - cron: "30 21 * * 0-4"
   workflow_dispatch:
     inputs:
       test:
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 200
+    timeout-minutes: 330  # an on-time 04:10 start runs ~305 min; GitHub's cap is 360
     env:
       TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
       TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}

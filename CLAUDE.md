@@ -12,7 +12,7 @@ The rule under test: **take the first 5250 (to Farglory) or 1841 that leaves Son
 
 | Step | Where | What |
 | --- | --- | --- |
-| Collect | GitHub Actions `.github/workflows/collect.yml` (weekdays; three crons 22:15, 22:40, 23:07 UTC Sun–Thu, because GitHub drops some scheduled runs) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
+| Collect | GitHub Actions `.github/workflows/collect.yml` (working days; three crons 20:10, 20:50, 21:30 UTC Sun–Thu = 04:10–05:30 Taipei, because GitHub starts scheduled runs up to ~2.5 h late or drops them) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
 | Build | same workflow | `build_panel.py` → `data/panel/mornings.csv` (one row per working day × approach: `rule`, `only_0730`, `only_0755`) |
 | Publish | Claude cloud routine "Farglory plan refresh" (weekdays 10:00 Taipei) | Uploads `mornings.csv` to the dashboard's `datasets/mornings` |
 
@@ -24,7 +24,7 @@ figure on it comes from a dataset or a `dash.calc`; don't hard-code numbers in t
 
 - `tdx.py`: stdlib TDX client (token cache, `request`, `get`). Reads `TDX_CLIENT_ID`/`TDX_CLIENT_SECRET` from `.env` or the environment.
 - `trips.py`: rebuilds trips from A2 stop events (departure from 松山機場, arrival at the destination stop).
-- `build_panel.py`: merges history + live into the panel; skips live days without departure-window coverage; estimates missed arrivals from neighbouring stops (`arrival_inferred = 1`).
+- `build_panel.py`: merges history + live into the panel; skips live days without 5250 data in the 07:20–07:45 departure window (collector off, or TDX feed outage as on 2026-10-23); estimates missed arrivals from neighbouring stops (`arrival_inferred = 1`).
 - `hist_a2.py`: downloads purchased TDX historical A2 (**costs points**; `--meta` only checks sizes).
 - `freeway_m04a.py`, `taxi_model.py`: Freeway Bureau TDCS M04A gantry travel times (Freeway 1 km 15–53, since 2021-06-22) and the 07:50 taxi simulation.
 - `data/calendar/workdays.csv`: official government working-day calendar (holidays = `is_holiday 2`).

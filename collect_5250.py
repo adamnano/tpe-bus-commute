@@ -7,6 +7,7 @@ Schedule (Taipei time):
   07:15-08:00  every 30 s   departures from Songshan Airport around the 07:30 slot (what matters most)
   08:00-09:15  every 60 s   arrivals at Farglory / Shuzaipo (can be inferred if one is missed)
 Budget: 90 + 75 = 165 calls per weekday, ~3,600 a month: inside the free 3 points (~4,500 calls).
+Weekends and official holidays (data/calendar/workdays.csv) are skipped.
 
 At start it warns (Mac notification) if running on battery: a closed MacBook sleeps on battery
 even with an external monitor, which stops collection.
@@ -17,6 +18,7 @@ Run by launchd at 07:14 on weekdays (see launchd/com.tpebus.collect5250.plist), 
 """
 from __future__ import annotations
 
+import csv
 import datetime as dt
 import json
 import subprocess
@@ -54,6 +56,18 @@ def poll() -> int:
     return len(records)
 
 
+def day_off(day: dt.date) -> bool:
+    """Weekend or official holiday per the government calendar; weekends only past its end."""
+    try:
+        with open(ROOT / "data" / "calendar" / "workdays.csv") as f:
+            for r in csv.DictReader(f):
+                if r["date"] == day.isoformat():
+                    return r["is_holiday"] != "0"
+    except OSError:
+        pass
+    return day.weekday() >= 5
+
+
 def warn_if_on_battery() -> None:
     try:
         ps = subprocess.run(["pmset", "-g", "ps"], capture_output=True, text=True).stdout
@@ -70,8 +84,8 @@ def main() -> None:
     if "--once" in sys.argv:
         print(f"{poll()} records")
         return
-    if dt.datetime.now(TZ).weekday() >= 5:
-        return  # weekends: nothing to do
+    if day_off(dt.datetime.now(TZ).date()):
+        return  # weekends and holidays: nothing to do
     warn_if_on_battery()
     while dt.datetime.now(TZ).time() < START:
         time.sleep(15)
