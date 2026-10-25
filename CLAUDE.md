@@ -27,7 +27,7 @@ figure on it comes from a dataset or a `dash.calc`; don't hard-code numbers in t
 - `build_panel.py`: merges history + live into the panel; skips live days without 5250 data in the 07:20–07:45 departure window (collector off, or TDX feed outage as on 2026-10-23); estimates missed arrivals from neighbouring stops (`arrival_inferred = 1`).
 - `hist_a2.py`: downloads purchased TDX historical A2 (**costs points**; `--meta` only checks sizes).
 - `freeway_m04a.py`, `taxi_model.py`: Freeway Bureau TDCS M04A gantry travel times (Freeway 1 km 15–53, since 2021-06-22) and the 07:50 taxi simulation.
-- `data/calendar/workdays.csv`: official government working-day calendar (holidays = `is_holiday 2`).
+- `data/calendar/workdays.csv`: official government working-day calendar (holidays = `is_holiday 2`). Typhoon days off (停班) aren't in the official calendar: add them by hand as `is_holiday 2`, note `颱風停班` (e.g. 2026-10-23).
 
 ## Commands
 
