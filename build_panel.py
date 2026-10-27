@@ -135,7 +135,7 @@ HIST_TRIPS = OUT / "history_trips.parquet"    # trip summaries derived from the 
 HIST_META = OUT / "history_meta.json"         # those days + stop-to-destination offsets
 
 
-def history() -> tuple[pd.DataFrame, dict, set]:
+def history() -> tuple[pd.DataFrame, dict, set, list]:
     """Purchased history as trip summaries. Rebuilt from data/hist when it exists locally;
     otherwise (e.g. on GitHub, where the raw purchased files are not published) read back."""
     if glob.glob(str(ROOT / "data/hist/a2_*.csv")):
@@ -145,24 +145,30 @@ def history() -> tuple[pd.DataFrame, dict, set]:
         days = sorted(Path(f).stem[3:] for f in glob.glob(str(ROOT / "data/hist/a2_*.csv")))
         OUT.mkdir(parents=True, exist_ok=True)
         th.to_parquet(HIST_TRIPS, index=False)
-        HIST_META.write_text(json.dumps({"days": days, "offsets": offsets}, ensure_ascii=False, indent=1))
+        # days whose archive has no 5250/1841 event 07:00-08:30 at all (e.g. 2026-07-20): missing data,
+        # not a no-bus morning
+        mins = hist.GPSTime.dt.hour * 60 + hist.GPSTime.dt.minute
+        seen = set(hist.loc[mins.between(7 * 60, 8 * 60 + 30), "GPSTime"].dt.strftime("%Y-%m-%d"))
+        gaps = [d for d in days if d not in seen]
+        HIST_META.write_text(json.dumps({"days": days, "no_morning_data": gaps, "offsets": offsets},
+                                        ensure_ascii=False, indent=1))
     else:
         th = pd.read_parquet(HIST_TRIPS)
         meta = json.loads(HIST_META.read_text())
-        days, offsets = meta["days"], meta["offsets"]
+        days, offsets, gaps = meta["days"], meta["offsets"], meta.get("no_morning_data", [])
     offsets = {sub: {int(k): v for k, v in o.items()} for sub, o in offsets.items()}
-    return th, offsets, {pd.Timestamp(d) for d in days}
+    return th, offsets, {pd.Timestamp(d) for d in days}, gaps
 
 
 def main() -> None:
-    th, offsets, hist_days = history()
+    th, offsets, hist_days, hist_gaps = history()
     live, coverage = load_live()
     parts = [th]
     if len(live):
         parts.append(infer_missing(tr.build(live), live, offsets))
     t = pd.concat(parts, ignore_index=True)
     wd = workdays()
-    days = [(d, "history") for d in sorted(hist_days) if d in wd]
+    days = [(d, "history") for d in sorted(hist_days) if d in wd and f"{d:%Y-%m-%d}" not in hist_gaps]
     skipped = []
     for day, polls in coverage.items():
         d = pd.Timestamp(day)
@@ -178,7 +184,7 @@ def main() -> None:
     r = m[m.strategy == "rule"]
     print(f"{r.date.nunique()} mornings ({(r.source == 'live').sum()} live), "
           f"rule on time {(r.arrive_min <= 540).sum()}/{len(r)}, taxi days {(r['mode'] == 'taxi').sum()}, "
-          f"inferred arrivals {int(m.arrival_inferred.sum())}; skipped (no 5250 data 07:20-07:45): {skipped or 'none'}")
+          f"inferred arrivals {int(m.arrival_inferred.sum())}; skipped (no 5250 data 07:20-07:45): {skipped or 'none'}; history days without morning data: {hist_gaps or 'none'}")
 
 
 if __name__ == "__main__":
