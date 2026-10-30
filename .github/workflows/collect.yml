@@ -1,15 +1,17 @@
 # Weekday-morning collector for bus 5250 + 1841 (TDX live stop events), plus the commute panel.
-# GitHub starts scheduled runs late or not at all: on 2026-10-20 it skipped the run, and on Oct 21-23
-# the 22:15-23:07 UTC crons started ~2h20m late (08:40 Taipei, after the 07:30 bus). So three crons
-# fire well before dawn (20:10, 20:50, 21:30 UTC = 04:10, 04:50, 05:30 Taipei); the script waits
-# until 07:15 and polls until 09:15. The concurrency group lets only one collect at a time, and a
-# run starting after 09:15 polls nothing.
+# GitHub starts scheduled runs late or not at all: it skipped 2026-10-20, started 2-3.7 h late on
+# Oct 21-30, and moving the crons earlier did not help. So the crons fire just after midnight
+# Taipei (00:37, 01:37, 02:37), and a run that starts before 03:45 waits until then, starts a
+# fresh run of itself (workflow_dispatch, which starts at once) and exits; a run that starts after
+# 03:45 waits until 07:15 and polls until 09:15. Each run thus stays inside GitHub's 6 h cap. The
+# concurrency group lets only one run at a time (a newer queued run replaces an older queued one),
+# and a run starting after 09:15 polls nothing.
 name: collect
 on:
   schedule:
-    - cron: "10 20 * * 0-4"
-    - cron: "50 20 * * 0-4"
-    - cron: "30 21 * * 0-4"
+    - cron: "37 16 * * 0-4"
+    - cron: "37 17 * * 0-4"
+    - cron: "37 18 * * 0-4"
   workflow_dispatch:
     inputs:
       test:
@@ -18,13 +20,14 @@ on:
         default: true
 permissions:
   contents: write
+  actions: write  # to start the fresh run
 concurrency:
   group: collect
   cancel-in-progress: false
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 330  # an on-time 04:10 start runs ~305 min; GitHub's cap is 360
+    timeout-minutes: 350  # a 03:45 start runs ~335 min; GitHub's cap is 360
     env:
       TDX_CLIENT_ID: ${{ secrets.TDX_CLIENT_ID }}
       TDX_CLIENT_SECRET: ${{ secrets.TDX_CLIENT_SECRET }}
@@ -33,8 +36,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+      - name: Before 03:45? Wait, then hand off to a fresh run
+        id: relay
+        if: github.event_name == 'schedule' || inputs.test == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now=$(date +%s); handoff=$(date -d 03:45 +%s)
+          if [ "$now" -lt "$handoff" ]; then
+            sleep $(( handoff - now ))
+            for i in 1 2 3; do gh workflow run collect.yml --ref main -f test=false && break; sleep 30; done
+            echo "handed_off=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: astral-sh/setup-uv@v6
+        if: steps.relay.outputs.handed_off != 'true'
       - name: Collect stop events (07:15-09:15)
+        if: steps.relay.outputs.handed_off != 'true'
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.test }}" = "true" ]; then
             python3 collect_5250.py --once
@@ -42,10 +59,10 @@ jobs:
             python3 collect_5250.py
           fi
       - name: Rebuild commute panel
-        if: always()
+        if: always() && steps.relay.outputs.handed_off != 'true'
         run: uv run python build_panel.py
       - name: Commit data
-        if: always()
+        if: always() && steps.relay.outputs.handed_off != 'true'
         run: |
           git config user.name "commute-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

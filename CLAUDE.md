@@ -12,7 +12,7 @@ The rule under test: **take the first 5250 (to Farglory) or 1841 that leaves Son
 
 | Step | Where | What |
 | --- | --- | --- |
-| Collect | GitHub Actions `.github/workflows/collect.yml` (working days; three crons 20:10, 20:50, 21:30 UTC Sun–Thu = 04:10–05:30 Taipei, because GitHub starts scheduled runs up to ~2.5 h late or drops them) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
+| Collect | GitHub Actions `.github/workflows/collect.yml` (working days; GitHub starts scheduled runs up to ~3.7 h late or drops them, so three crons fire 00:37–02:37 Taipei and a run starting before 03:45 waits, then hands off to a fresh `workflow_dispatch` run so each stays under the 6 h cap) | `collect_5250.py` polls TDX live A2 for 5250+1841 in one request: 07:15–08:00 every 30 s, 08:00–09:15 every 60 s → `data/live/a2_YYYY-MM-DD.ndjson` |
 | Build | same workflow | `build_panel.py` → `data/panel/mornings.csv` (one row per working day × approach: `rule`, `only_0730`, `only_0755`) |
 | Publish | Claude cloud routine "Farglory plan refresh" (weekdays 10:00 Taipei) | Uploads `mornings.csv` to the dashboard's `datasets/mornings` |
 
@@ -42,7 +42,7 @@ gh workflow run collect.yml -f test=true         # quick test of the GitHub coll
 
 ## Rules
 
-- **TDX budget**: the free Basic plan gives 3 points/month (≈4,500 basic calls, 5 calls/min). Basic calls cost 1 point per 1,500 calls or 150 MB; **historical calls cost 1 point per 10 calls or 20 MB**, and one day of InterCity A2 is ~343 MB ≈ 17 points (whole country, no server-side route filter: `$filter`/`$select` are ignored). The collector uses ~3,600 calls/month; don't add polling that pushes past ~4,500. The same TDX account is shared with `~/dev/urban_clustering`.
+- **TDX budget**: the free Basic plan gives 3 points/month (≈4,500 basic calls, 5 calls/min). Basic calls cost 1 point per 1,500 calls or 150 MB; **historical calls cost 1 point per 10 calls or 20 MB**, and one day of InterCity A2 is ~343 MB raw but ~20 MB gzipped (`hist_a2.py` sends `Accept-Encoding: gzip`), so ≈ 1.15 points measured (whole country, no server-side route filter: `$filter`/`$select` are ignored). The collector uses ~3,600 calls/month; don't add polling that pushes past ~4,500. The same TDX account is shared with `~/dev/urban_clustering`.
 - **Never publish** `.env`, `.tdx_token.json`, or the purchased raw history `data/hist/` (summarised into `data/panel/history_trips.parquet` instead). `.gitignore` whitelists only `data/live/`, `data/panel/`, `data/calendar/`.
 - TLS: some Taiwanese government certificates fail Python 3.13's strict X.509 check; use `tdx.SSL_CTX` for any `urllib` call to TDX, tisvcloud or dgpa.
 - Times: everything is Asia/Taipei; GitHub cron is UTC. A2 `A2EventType` is `進站`/`離站` in history CSVs and `1`/`0` in live JSON.
