@@ -489,3 +489,6 @@ date,strategy,mode,arrive_min,source,arrival_inferred
 2026-10-29,only_0730,5250,525.3,live,0
 2026-10-29,only_0755,5250,543.5,live,0
 2026-10-29,rule,5250,525.3,live,0
+2026-11-02,only_0730,5250,548.5,live,0
+2026-11-02,only_0755,5250,548.5,live,0
+2026-11-02,rule,1841,532.3,live,0
