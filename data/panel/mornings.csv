@@ -510,3 +510,6 @@ date,strategy,mode,arrive_min,source,arrival_inferred
 2026-11-12,only_0730,5250,530.5,live,0
 2026-11-12,only_0755,5250,536.5,live,1
 2026-11-12,rule,5250,530.5,live,0
+2026-11-13,only_0730,5250,512.6,live,0
+2026-11-13,only_0755,5250,556.5,live,1
+2026-11-13,rule,5250,512.6,live,0
